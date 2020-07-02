@@ -19,7 +19,7 @@ from transformers import (
 from transformers import BertForTokenClassification
 from tokenizers import BertWordPieceTokenizer
 
-from utils import SeqLabDataset, get_labels
+from utils import SeqLabelDataset, get_labels
 
 
 logger = logging.getLogger(__name__)
@@ -34,20 +34,6 @@ class ModelArguments:
     model_name_or_path: str = field(
         metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
     )
-    '''
-    config_name: Optional[str] = field(
-        default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
-    )
-    tokenizer_name: Optional[str] = field(
-        default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
-    )
-    use_fast: bool = field(default=False, metadata={"help": "Set this flag to use fast tokenization."})
-    # If you want to tweak more attributes on your tokenizer, you should do it in a distinct script,
-    # or just modify its tokenizer_config.json.
-    cache_dir: Optional[str] = field(
-        default=None, metadata={"help": "Where do you want to store the pretrained models downloaded from s3"}
-    )
-    '''
 
 
 @dataclass
@@ -132,7 +118,7 @@ def main():
 
     # Get datasets
     train_dataset = (
-        SeqLabDataset(
+        SeqLabelDataset(
             data_dir=data_args.data_dir,
             mode='train',
             tokenizer=tokenizer,
@@ -145,7 +131,7 @@ def main():
         else None
     )
     eval_dataset = (
-        SeqLabDataset(
+        SeqLabelDataset(
             data_dir=data_args.data_dir,
             mode='dev',
             tokenizer=tokenizer,
