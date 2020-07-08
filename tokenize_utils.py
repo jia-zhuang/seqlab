@@ -49,8 +49,10 @@ class TokenizedSentence:
             return 0, 0
     
     def token_span_to_char_span(self, token_span):
-        start, end = token_span
-        return self.token2char[start][0], self.token2char[end - 1][1]
+        char_indexes = self.token2char[token_span[0]:token_span[1]]
+        char_indexes = [span for span in char_indexes if span != (0, 0)]  # 删除CLS/SEP对应的span
+        start, end = char_indexes[0][0], char_indexes[-1][1]
+        return start, end
     
     def get_phrase_char_span(self, phrase):
         start = self.sentence.find(phrase)
