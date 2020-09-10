@@ -1,6 +1,8 @@
 # Custom
 models/
+models
 datasets/
+datasets
 *.ipynb
 runs/
 venv
