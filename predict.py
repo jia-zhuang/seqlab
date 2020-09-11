@@ -1,60 +1,58 @@
+from typing import List, Dict, Tuple, Optional
 from tokenize_utils import TokenizedSentence
 import torch
 import numpy as np
 import re
 
-
-PATTERN = re.compile(r'12*')
-REV_PATTERN = re.compile(r'34*')
+from seq_utils import get_entities, filter_invalid
 
 
-def get_label_span_by_pattern(pred_ids_str, pattern, start_pos=0):
+def batch_predict(model, batch_tokend: TokenizedSentence, device) -> np.ndarray:
     '''
-        pred_ids_str: convert pred_ids to str, which is convenient for regex search
-        pattern: regex pattern
-        start_pos: 有prefix的情况下，通过设置strat_pos来跳过prefix部分
-    '''
-    spans = []
-    pos = start_pos
-    while True:
-        match = pattern.search(pred_ids_str, pos)
-        if match:
-            span = match.span()
-            spans.append(span)
-            pos = span[1]
-        else:
-            break
-    
-    return spans
-
-
-def predict_batch(model, batch, TokenizedSentence, device):
-    '''
-        batch: [{'sentence': '', 'prefix': ''}]
+        outputs: shape=(N, L, S) for labeling task, shape=(N, num_heads, L, 3) for multi-head labeling task 
     '''
     model.to(device)
-
-    batch_tokend = [TokenizedSentence(ex['sentence'], prefix=ex['prefix']) for ex in batch]
-
-    inputs = {
-        'input_ids': torch.tensor([t.input_ids for t in batch_tokend], dtype=torch.long, device=device),
-        'attention_mask': torch.tensor([t.attention_mask for t in batch_tokend], dtype=torch.long, device=device),
-        'token_type_ids': torch.tensor([t.token_type_ids for t in batch_tokend], dtype=torch.long, device=device),
-    }
+    model.eval()
 
     with torch.no_grad():
+        inputs = {
+            'input_ids': torch.tensor([t.input_ids for t in batch_tokend], dtype=torch.long, device=device),
+            'attention_mask': torch.tensor([t.attention_mask for t in batch_tokend], dtype=torch.long, device=device),
+            'token_type_ids': torch.tensor([t.token_type_ids for t in batch_tokend], dtype=torch.long, device=device),
+        }
+
         outputs = model(**inputs)
         outputs = outputs[0].detach().cpu().numpy()
-    
-    all_pred_ids = np.argmax(outputs, axis=-1)
 
-    all_labels = []
+    return outputs
+
+
+def convert_model_output_to_entities(batch_tokend, logits, labels):
+    '''
+        logits: np.array with shape (B, L, S)
+        输出：[
+                {(start, end): tag, (start, end): tag}
+             ]
+    '''
+    all_pred_ids = logits.argmax(axis=-1)
+    all_entities = []
     for tokend, pred_ids in zip(batch_tokend, all_pred_ids):
-        pred_ids_str = ''.join(map(str, pred_ids))
-        start_pos = 0 if tokend.prefix is None else tokend.token_type_ids.index(1) 
-        spans = get_label_span_by_pattern(pred_ids_str, PATTERN, start_pos=start_pos)
+        mask_len = sum(tokend.attention_mask)
+        pred_ids = pred_ids[:(mask_len-1)]  # remove pad and tailing [SEP]
+        pred_labels = [labels[x] for x in pred_ids]
+        start_pos = tokend.token_type_ids.index(1) if tokend.prefix else 0
+        # 从开头到 start_pos 这个区间，是无效区间
+        entities = get_entities(pred_labels)
+        entities = filter_invalid(entities, [(0, start_pos-1)])
+
+        pred_entities = {}
+        for tag, start, end in entities:
+            span = tokend.token_span_to_char_span((start, end+1))
+            pred_entities[span] = tag
         
-        labels = [tokend.get_phrase_by_token_span(s) for s in spans]
-        all_labels.append(labels)
+        all_entities.append(pred_entities)
     
-    return all_labels
+    return all_entities
+
+
+

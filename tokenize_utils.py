@@ -16,7 +16,7 @@ class TokenizedSentence:
     def setup_tokenizer(cls, tokenizer, max_seq_length):
         cls.tokenizer = tokenizer
         cls.tokenizer.enable_truncation(max_length=max_seq_length)
-        cls.tokenizer.enable_padding(max_length=max_seq_length)
+        cls.tokenizer.enable_padding(length=max_seq_length)
     
     def __init__(self, sentence=None, prefix=None):
         
@@ -84,3 +84,25 @@ class TokenizedSentence:
         for k, v in data.items():
             setattr(instance, k, v)
         return instance
+
+
+if __name__ == "__main__":
+    from tokenizers import BertWordPieceTokenizer
+    # tests
+    vocab_file = 'models/head20w_4/vocab.txt'
+    tokenizer = BertWordPieceTokenizer(vocab_file)
+    TokenizedSentence.setup_tokenizer(tokenizer, max_seq_length=200)
+    sent = "埃尔温·薛定谔（Erwin Schrödinger，1887年8月12日—1961年1月4日），男，奥地 利物理学家，量子力学奠基人之一"
+    phrase = '奥地 利'
+    char_span = (50, 54)
+
+    tokend_sent = TokenizedSentence(sentence=sent)
+    token_span = tokend_sent.char_span_to_token_span(char_span)
+    assert tokend_sent.get_phrase_by_token_span(token_span) == phrase
+
+    prefix = 'Erwin Schrödinger'
+    tokend_sent = TokenizedSentence(sentence=sent, prefix=prefix)
+    token_span = tokend_sent.char_span_to_token_span(char_span)
+    assert tokend_sent.get_phrase_by_token_span(token_span) == phrase
+
+    print('Tests passed!')

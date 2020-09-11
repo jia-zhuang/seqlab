@@ -4,6 +4,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
+import torch
 import numpy as np
 from seqeval.metrics import f1_score, precision_score, recall_score
 from torch import nn
@@ -21,6 +22,8 @@ from tokenizers import BertWordPieceTokenizer
 
 from utils import SeqLabelDataset, get_labels
 
+from multi_head import BertForMultiHeadTokenClassification
+
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +33,13 @@ class ModelArguments:
     """
     Arguments pertaining to which model/config/tokenizer we are going to fine-tune from.
     """
-
     model_name_or_path: str = field(
         metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
+    )
+
+    task: Optional[str] = field(
+        default='labeling',
+        metadata={"help": "Task, can be `labeling` or `multi_head_labeling`"}
     )
 
 
@@ -114,38 +121,53 @@ def main():
     # download model & vocab.
 
     tokenizer = BertWordPieceTokenizer(os.path.join(model_args.model_name_or_path, 'vocab.txt'))
-    model = BertForTokenClassification.from_pretrained(model_args.model_name_or_path, num_labels=num_labels)
+    
+    model_cls = BertForMultiHeadTokenClassification if model_args.task == 'multi_head_labeling' else BertForTokenClassification
+    model = model_cls.from_pretrained(model_args.model_name_or_path, num_labels=num_labels)
 
     # Get datasets
     train_dataset = (
         SeqLabelDataset(
+            task=model_args.task,
             data_dir=data_args.data_dir,
             mode='train',
             tokenizer=tokenizer,
             labels=labels,
             max_seq_length=data_args.max_seq_length,
             overwrite_cache=data_args.overwrite_cache,
-            local_rank=training_args.local_rank,
         )
         if training_args.do_train
         else None
     )
     eval_dataset = (
         SeqLabelDataset(
+            task=model_args.task,
             data_dir=data_args.data_dir,
             mode='dev',
             tokenizer=tokenizer,
             labels=labels,
             max_seq_length=data_args.max_seq_length,
             overwrite_cache=data_args.overwrite_cache,
-            local_rank=training_args.local_rank,
         )
         if training_args.do_eval
         else None
     )
 
     def align_predictions(predictions: np.ndarray, label_ids: np.ndarray) -> Tuple[List[int], List[int]]:
-        preds = np.argmax(predictions, axis=2)
+        if model_args.task == 'labeling':
+            # predictions: N x L x S
+            # label_ids: N x L
+            preds = np.argmax(predictions, axis=2)
+        elif model_args.task == 'multi_head_labeling':
+            # predictions: N x num_heads x L x S
+            # label_ids: N x num_heads x L
+            preds = np.argmax(predictions, axis=3)   # N x num_heads x L
+            N, _, _ = preds.shape
+            preds = preds.reshape((N, -1))   # N x num_heads*L
+            label_ids = label_ids.reshape((N, -1))   # N x num_heads*L
+            label_map = {0: 'O', 1: 'B-E', 2: 'I-E'}
+        else:
+            raise ValueError(f'Error! Invalid task: `f{model_args.task}`')
 
         batch_size, seq_len = preds.shape
 
@@ -167,6 +189,14 @@ def main():
             "recall": recall_score(out_label_list, preds_list),
             "f1": f1_score(out_label_list, preds_list),
         }
+    
+    def data_collator(features) -> Dict[str, torch.Tensor]:
+        batch = {}
+        for k in ('input_ids', 'attention_mask', 'token_type_ids'):
+            batch[k] = torch.tensor([getattr(f, k) for f in features], dtype=torch.long)
+        
+        batch['labels'] = torch.tensor([f.label_ids for f in features], dtype=torch.long)
+        return batch
 
     # Initialize our Trainer
     trainer = Trainer(
@@ -174,6 +204,7 @@ def main():
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
+        data_collator=data_collator,
         compute_metrics=compute_metrics,
     )
 

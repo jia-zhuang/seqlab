@@ -1,5 +1,4 @@
-O
-B-P
-I-P
-B-Q
-I-Q
+T
+D
+S
+E
