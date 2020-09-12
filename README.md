@@ -46,7 +46,7 @@ head 3:   X     X      X      BIO     X    # 比如用来表示 近义项
 
 - 输入
 
-```json
+```python
 [   # batch 形式输入
     {
         "sentence": "姚明是中国最优秀的篮球运动员",  
@@ -58,7 +58,7 @@ head 3:   X     X      X      BIO     X    # 比如用来表示 近义项
 
 - 输出
 
-```json
+```python
 [
     {{(9, 15): "T", (3, 15): "D"}}
 ]
