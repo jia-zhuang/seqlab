@@ -67,7 +67,7 @@ class Predictor:
 
         # load model
         model_cls = BertForMultiHeadTokenClassification if multi_head else BertForTokenClassification
-        self.model = model_cls.from_pretrained(model_path)
+        self.model = model_cls.from_pretrained(model_path, num_labels=len(labels))
 
         # load tokenizer
         tokenizer = BertWordPieceTokenizer(os.path.join(model_path, 'vocab.txt'))
@@ -114,3 +114,16 @@ class Predictor:
         
         return outputs
 
+
+if __name__ == "__main__":
+    # test
+    import pandas as pd
+    dev_df = pd.read_pickle('datasets/v1_v2_short/dev.pkl')
+    examples = dev_df.head().to_dict(orient='records')
+    print(examples)
+    
+    from utils import get_labels
+    labels = get_labels('labels.txt')
+    predictor = Predictor('models/debug7/', labels, max_seq_length=200, multi_head=False)
+    preds = predictor.predict(examples)
+    print(preds)

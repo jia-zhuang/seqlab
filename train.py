@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple
 
 import torch
 import numpy as np
-from seqeval.metrics import f1_score, precision_score, recall_score
+from seqeval.metrics import f1_score, precision_score, recall_score, classification_report
 from torch import nn
 
 from transformers import (
@@ -111,7 +111,6 @@ def main():
 
     # Prepare CONLL-2003 task
     labels = get_labels(data_args.labels)
-    label_map: Dict[int, str] = {i: label for i, label in enumerate(labels)}
     num_labels = len(labels)
 
     # Load pretrained model and tokenizer
@@ -157,15 +156,36 @@ def main():
         if model_args.task == 'labeling':
             # predictions: N x L x S
             # label_ids: N x L
+            label_map: Dict[int, str] = {i: label for i, label in enumerate(labels)}
             preds = np.argmax(predictions, axis=2)
         elif model_args.task == 'multi_head_labeling':
             # predictions: N x num_heads x L x S
             # label_ids: N x num_heads x L
             preds = np.argmax(predictions, axis=3)   # N x num_heads x L
-            N, _, _ = preds.shape
-            preds = preds.reshape((N, -1))   # N x num_heads*L
-            label_ids = label_ids.reshape((N, -1))   # N x num_heads*L
-            label_map = {0: 'O', 1: 'B-E', 2: 'I-E'}
+            N, num_heads, seq_len = preds.shape
+
+            label_map = {0: 'O'}
+            for i, label in enumerate(labels):
+                label_map[2*i + 1] = f'B-{label}'
+                label_map[2*i + 2] = f'I-{label}'
+
+            def expand_heads(ids):
+                ''' ids: label_ids or preds, shape=(N, num_heads, L)
+                    outputs: shape=(N, num_heads*L)
+                '''
+                outputs = []
+                for i, _ in enumerate(labels):
+                    head_ids = ids[:, i]
+                    outputs.append(
+                        np.where((head_ids==1)|(head_ids==2), head_ids + 2*i, head_ids)
+                    )
+
+                outputs = np.concatenate(outputs, axis=1)  # N x num_heads*L
+                return outputs
+            
+            preds = expand_heads(preds)
+            label_ids = expand_heads(label_ids)
+        
         else:
             raise ValueError(f'Error! Invalid task: `f{model_args.task}`')
 
@@ -184,6 +204,12 @@ def main():
 
     def compute_metrics(p: EvalPrediction) -> Dict:
         preds_list, out_label_list = align_predictions(p.predictions, p.label_ids)
+        report_str = classification_report(out_label_list, preds_list)
+        print(report_str)
+        # save report
+        with open(os.path.join(training_args.output_dir, 'report.txt'), 'w') as f:
+            f.write(report_str)
+
         return {
             "precision": precision_score(out_label_list, preds_list),
             "recall": recall_score(out_label_list, preds_list),
@@ -216,7 +242,7 @@ def main():
         trainer.save_model()
 
         if trainer.is_world_master():
-            tokenizer.save(training_args.output_dir)
+            tokenizer.save_model(training_args.output_dir)
 
     # Evaluation
     results = {}
