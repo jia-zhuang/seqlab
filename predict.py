@@ -1,10 +1,15 @@
+import os
 from typing import List, Dict, Tuple, Optional
 from tokenize_utils import TokenizedSentence
 import torch
 import numpy as np
-import re
+
+from tokenizers import BertWordPieceTokenizer
+from transformers import BertPreTrainedModel
+from transformers import BertForTokenClassification
 
 from seq_utils import get_entities, filter_invalid
+from multi_head import BertForMultiHeadTokenClassification
 
 
 def batch_predict(model, batch_tokend: TokenizedSentence, device) -> np.ndarray:
@@ -55,4 +60,57 @@ def convert_model_output_to_entities(batch_tokend, logits, labels):
     return all_entities
 
 
+class Predictor:
+    def __init__(self, model_path, labels, max_seq_length, multi_head=False):
+        self.multi_head = multi_head
+        self.labels_or_heads = labels  # labels means heads if multi_head=True
+
+        # load model
+        model_cls = BertForMultiHeadTokenClassification if multi_head else BertForTokenClassification
+        self.model = model_cls.from_pretrained(model_path)
+
+        # load tokenizer
+        tokenizer = BertWordPieceTokenizer(os.path.join(model_path, 'vocab.txt'))
+        TokenizedSentence.setup_tokenizer(tokenizer, max_seq_length=max_seq_length)
+        
+        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    
+    def predict(self, data):
+        '''
+            data = [
+                {              # 0 1 23 4 56 7 89 10 11 12 13 
+                    'sentence': '姚明是中国最优秀的篮球运动员',
+                    'prefix': '姚明',  # 或者为 None
+                }
+            ]
+
+            outputs = [
+                {
+                    (3, 14): 'D',
+                    (9, 14): 'T'
+                }
+            ]
+        '''
+        batch_tokend = [TokenizedSentence(ex['sentence'], prefix=ex['prefix']) for ex in data]
+        
+        logits = batch_predict(self.model, batch_tokend, self.device)
+
+        if self.multi_head:  # logits.shape = (N, num_heads, L, 3)
+            entities = []    # (num_heads, N)
+            for i, _ in enumerate(self.labels_or_heads):
+                entities.append(
+                    convert_model_output_to_entities(batch_tokend, logits[:, i], ['O', 'B-E', 'I-E'])
+                )
+            
+            outputs = []
+            for record in zip(*entities):  # (N, num_heads)
+                tmp = {}
+                for head, span_map in zip(self.labels_or_heads, record):
+                    tmp.update({span: head for span in span_map})
+                outputs.append(tmp)
+            
+        else:   # logits.shape = (N, L, S)
+            outputs = convert_model_output_to_entities(batch_tokend, logits, self.labels_or_heads)
+        
+        return outputs
 
