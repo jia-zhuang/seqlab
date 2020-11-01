@@ -8,15 +8,15 @@ huggingface/tokenizers 已经实现了tokenize后的token对应原始文本的id
 
 
 class TokenizedSentence:
-    '''使用前需要先调用setup_tokenizer'''
+    '''使用前需要先调用setup'''
     tokenizer = None
-    max_seq_length = None
+    max_length = None
     
     @classmethod
-    def setup_tokenizer(cls, tokenizer, max_seq_length):
+    def setup(cls, tokenizer, max_length):
         cls.tokenizer = tokenizer
-        cls.tokenizer.enable_truncation(max_length=max_seq_length)
-        cls.tokenizer.enable_padding(length=max_seq_length)
+        cls.tokenizer.enable_truncation(max_length=max_length)
+        cls.tokenizer.enable_padding(length=max_length)
     
     def __init__(self, sentence=None, prefix=None):
         
@@ -89,9 +89,9 @@ class TokenizedSentence:
 if __name__ == "__main__":
     from tokenizers import BertWordPieceTokenizer
     # tests
-    vocab_file = 'models/head20w_4/vocab.txt'
+    vocab_file = 'assets/bert-base-chinese-vocab.txt'
     tokenizer = BertWordPieceTokenizer(vocab_file)
-    TokenizedSentence.setup_tokenizer(tokenizer, max_seq_length=200)
+    TokenizedSentence.setup(tokenizer, max_length=200)
     sent = "埃尔温·薛定谔（Erwin Schrödinger，1887年8月12日—1961年1月4日），男，奥地 利物理学家，量子力学奠基人之一"
     phrase = '奥地 利'
     char_span = (50, 54)

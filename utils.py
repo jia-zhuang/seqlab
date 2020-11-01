@@ -56,7 +56,7 @@ class SeqLabelDataset(Dataset):
                 # read examples
                 examples = pd.read_pickle(os.path.join(data_dir, f'{mode}.pkl'))
                 # convert examples to features
-                TokenizedSentence.setup_tokenizer(tokenizer, max_seq_length)
+                TokenizedSentence.setup(tokenizer, max_seq_length)
                 label_map = {label: i for i, label in enumerate(labels)}
                 
                 self.features = []
@@ -65,7 +65,7 @@ class SeqLabelDataset(Dataset):
                         logger.info("Writing example %d of %d", ex_idx, examples.shape[0])
 
                     self.features.append(
-                        convert_example_to_feature(ex_idx, example, TokenizedSentence, label_map, task)
+                        convert_example_to_feature(ex_idx, example, label_map, task)
                     )
 
                 logger.info(f"Saving features into cached file {cached_features_file}")
@@ -93,7 +93,7 @@ def generate_label_ids(token_spans, ignore_mask, ignore_index=-100):
     return label_ids
 
 
-def convert_example_to_feature(ex_idx, example, TokenizedSentence, label_map, task):
+def convert_example_to_feature(ex_idx, example, label_map, task):
     ''' 先不考虑span重叠的情况
     '''
     prefix = getattr(example, 'prefix', None)
@@ -154,20 +154,20 @@ def get_labels(path: str) -> List[str]:
 
 if __name__ == "__main__":
     from tokenizers import BertWordPieceTokenizer
-    tokenizer = BertWordPieceTokenizer('models/head20w_4/vocab.txt')
+    tokenizer = BertWordPieceTokenizer('assets/bert-base-chinese-vocab.txt')
     max_seq_length = 20
-    TokenizedSentence.setup_tokenizer(tokenizer, max_seq_length)
+    TokenizedSentence.setup(tokenizer, max_seq_length)
     #                                 0 123 45 6 78 9
     example = pd.Series({'sentence': '宝马X3是最畅销的车。', 'prefix': '宝马X3', 'labels': {(5, 10): 'D', (9, 10): 'T', (6, 8): 'T'}})
 
     # for multi-head
     labels = ['T', 'D', 'S', 'E']
     label_map = {l: i for i, l in enumerate(labels)}
-    feature = convert_example_to_feature(0, example, TokenizedSentence, label_map, task='multi_head_labeling')
+    feature = convert_example_to_feature(0, example, label_map, task='multi_head_labeling')
     print(feature)
 
     # for normal sequence labeling
     labels = ['O', 'B-T', 'I-T', 'B-D', 'I-D', 'B-S', 'I-S', 'B-E', 'I-E']
     label_map = {l: i for i, l in enumerate(labels)}
-    feature = convert_example_to_feature(0, example, TokenizedSentence, label_map, task='labeling')
+    feature = convert_example_to_feature(0, example, label_map, task='labeling')
     print(feature)
