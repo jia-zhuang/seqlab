@@ -32,14 +32,18 @@ def batch_predict(model, batch_tokend: TokenizedSentence, device) -> np.ndarray:
     return outputs
 
 
-def convert_model_output_to_entities(batch_tokend, logits, labels):
+def convert_model_output_to_entities(batch_tokend, logits, labels, is_pred_ids=False):
     '''
         logits: np.array with shape (B, L, S)
         输出：[
                 {(start, end): tag, (start, end): tag}
              ]
     '''
-    all_pred_ids = logits.argmax(axis=-1)
+    if is_pred_ids:
+        all_pred_ids = logits
+    else:
+        all_pred_ids = logits.argmax(axis=-1)
+
     all_entities = []
     for tokend, pred_ids in zip(batch_tokend, all_pred_ids):
         mask_len = sum(tokend.attention_mask)
@@ -58,6 +62,29 @@ def convert_model_output_to_entities(batch_tokend, logits, labels):
         all_entities.append(pred_entities)
     
     return all_entities
+
+
+def multihead_convert_model_output_to_entities(batch_tokend, logits, heads, is_pred_ids=False):
+    '''
+        logits: np.array with shape (B, head, L, S)
+        输出：[
+            {(start, end): tag, (start, end): tag}
+        ]
+    '''
+    entities = []  # (num_heads, B)
+    for i, _ in enumerate(heads):
+        entities.append(
+            convert_model_output_to_entities(batch_tokend, logits[:, i], ['O', 'B-E', 'I-E'], is_pred_ids)
+        )
+
+    outputs = []
+    for record in zip(*entities):  # (N, num_heads)
+        tmp = {}
+        for head, span_map in zip(heads, record):
+            tmp.update({span: head for span in span_map})
+        outputs.append(tmp)
+    
+    return outputs
 
 
 class Predictor:
@@ -96,19 +123,7 @@ class Predictor:
         logits = batch_predict(self.model, batch_tokend, self.device)
 
         if self.multi_head:  # logits.shape = (N, num_heads, L, 3)
-            entities = []    # (num_heads, N)
-            for i, _ in enumerate(self.labels_or_heads):
-                entities.append(
-                    convert_model_output_to_entities(batch_tokend, logits[:, i], ['O', 'B-E', 'I-E'])
-                )
-            
-            outputs = []
-            for record in zip(*entities):  # (N, num_heads)
-                tmp = {}
-                for head, span_map in zip(self.labels_or_heads, record):
-                    tmp.update({span: head for span in span_map})
-                outputs.append(tmp)
-            
+            outputs = multihead_convert_model_output_to_entities(batch_tokend, logits, self.labels_or_heads)
         else:   # logits.shape = (N, L, S)
             outputs = convert_model_output_to_entities(batch_tokend, logits, self.labels_or_heads)
         

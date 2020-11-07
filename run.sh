@@ -6,7 +6,7 @@ export NPROC=1
 
 export ROOT=.
 
-export TASK=multi_head_labeling
+export TASK=multihead_labeling
 export MAX_LENGTH=100
 export BERT_MODEL=${ROOT}/assets/models/bert-base-chinese/
 export OUTPUT_DIR=${ROOT}/assets/models/multihead_sequence_labeling/

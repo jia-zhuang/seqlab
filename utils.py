@@ -13,6 +13,7 @@ from filelock import FileLock
 
 from tokenize_utils import TokenizedSentence
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +34,7 @@ class InputFeature:
     input_ids: List[int]
     attention_mask: List[int]
     token_type_ids: Optional[List[int]] = None
-    label_ids: Union[List[int], List[List[int]], None] = None    # for labeling, multi_head_labeling and predict
+    label_ids: Union[List[int], List[List[int]], None] = None    # for labeling, multihead_labeling and predict
 
 
 class SeqLabelDataset(Dataset):
@@ -111,7 +112,7 @@ def convert_example_to_feature(ex_idx, example, label_map, task):
             token_spans[tokend_sent.char_span_to_token_span(span)] = label_map[f'B-{tag}']  # 这里只用B-tag标识，I-tag通过+1获得，这就要求在写labels.txt文件时，遵循相邻和有序原则
         label_ids = generate_label_ids(token_spans, ignore_mask)
 
-    elif task == 'multi_head_labeling':
+    elif task == 'multihead_labeling':
         label_ids = []
         for head in label_map:  # 要求是 order dict，对于python>=3.6，dict默认是有序的
             token_spans = {}
@@ -163,7 +164,7 @@ if __name__ == "__main__":
     # for multi-head
     labels = ['T', 'D', 'S', 'E']
     label_map = {l: i for i, l in enumerate(labels)}
-    feature = convert_example_to_feature(0, example, label_map, task='multi_head_labeling')
+    feature = convert_example_to_feature(0, example, label_map, task='multihead_labeling')
     print(feature)
 
     # for normal sequence labeling

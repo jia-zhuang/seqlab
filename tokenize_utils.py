@@ -15,6 +15,7 @@ class TokenizedSentence:
     @classmethod
     def setup(cls, tokenizer, max_length):
         cls.tokenizer = tokenizer
+        cls.max_length = max_length
         cls.tokenizer.enable_truncation(max_length=max_length)
         cls.tokenizer.enable_padding(length=max_length)
     

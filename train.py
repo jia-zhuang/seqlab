@@ -39,7 +39,7 @@ class ModelArguments:
 
     task: Optional[str] = field(
         default='labeling',
-        metadata={"help": "Task, can be `labeling` or `multi_head_labeling`"}
+        metadata={"help": "Task, can be `labeling` or `multihead_labeling`"}
     )
 
 
@@ -121,7 +121,7 @@ def main():
 
     tokenizer = BertWordPieceTokenizer(os.path.join(model_args.model_name_or_path, 'vocab.txt'))
     
-    model_cls = BertForMultiHeadTokenClassification if model_args.task == 'multi_head_labeling' else BertForTokenClassification
+    model_cls = BertForMultiHeadTokenClassification if model_args.task == 'multihead_labeling' else BertForTokenClassification
     model = model_cls.from_pretrained(model_args.model_name_or_path, num_labels=num_labels)
 
     # Get datasets
@@ -158,7 +158,7 @@ def main():
             # label_ids: N x L
             label_map: Dict[int, str] = {i: label for i, label in enumerate(labels)}
             preds = np.argmax(predictions, axis=2)
-        elif model_args.task == 'multi_head_labeling':
+        elif model_args.task == 'multihead_labeling':
             # predictions: N x num_heads x L x S
             # label_ids: N x num_heads x L
             preds = np.argmax(predictions, axis=3)   # N x num_heads x L
