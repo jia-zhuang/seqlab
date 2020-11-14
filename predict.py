@@ -98,7 +98,7 @@ class Predictor:
 
         # load tokenizer
         tokenizer = BertWordPieceTokenizer(os.path.join(model_path, 'vocab.txt'))
-        TokenizedSentence.setup_tokenizer(tokenizer, max_seq_length=max_seq_length)
+        TokenizedSentence.setup(tokenizer, max_length=max_seq_length)
         
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     
