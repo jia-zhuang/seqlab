@@ -1,5 +1,7 @@
 python>=3.6
 torch==1.4.0
 transformers==3.0.2
+tokenizers==0.8.1.rc1
+pandas=1.1.1
 seqeval
 dataclass
