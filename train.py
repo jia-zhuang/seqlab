@@ -52,6 +52,9 @@ class DataTrainingArguments:
     data_dir: str = field(
         metadata={"help": "The input data dir. Should contain the .txt files for a CoNLL-2003-formatted task."}
     )
+    is_small: bool = field(
+        default=False, metadata={"help": "Use small dataset for debug"}
+    )
     labels: Optional[str] = field(
         metadata={"help": "Path to a file containing all labels. If not specified, CoNLL-2003 labels are used."}
     )
@@ -130,6 +133,7 @@ def main():
             task=model_args.task,
             data_dir=data_args.data_dir,
             mode='train',
+            is_small=data_args.is_small,
             tokenizer=tokenizer,
             labels=labels,
             max_seq_length=data_args.max_seq_length,
@@ -143,6 +147,7 @@ def main():
             task=model_args.task,
             data_dir=data_args.data_dir,
             mode='dev',
+            is_small=data_args.is_small,
             tokenizer=tokenizer,
             labels=labels,
             max_seq_length=data_args.max_seq_length,
@@ -236,29 +241,23 @@ def main():
 
     # Training
     if training_args.do_train:
-        trainer.train(
-            model_path=model_args.model_name_or_path if os.path.isdir(model_args.model_name_or_path) else None
-        )
+        train_result = trainer.train()
+        metrics = train_result.metrics
         trainer.save_model()
-
-        if trainer.is_world_master():
-            tokenizer.save_model(training_args.output_dir)
+        trainer.log_metrics("train", metrics)
+        trainer.save_metrics("train", metrics)
+        trainer.save_state()
 
     # Evaluation
     results = {}
-    if training_args.do_eval and training_args.local_rank in [-1, 0]:
+    if training_args.do_eval:
         logger.info("*** Evaluate ***")
 
-        result = trainer.evaluate()
+        metrics = trainer.evaluate()
 
-        output_eval_file = os.path.join(training_args.output_dir, "eval_results.txt")
-        with open(output_eval_file, "w") as writer:
-            logger.info("***** Eval results *****")
-            for key, value in result.items():
-                logger.info("  %s = %s", key, value)
-                writer.write("%s = %s\n" % (key, value))
+        trainer.log_metrics("eval", metrics)
+        trainer.save_metrics("eval", metrics)
 
-            results.update(result)
 
     # Predict
     if training_args.do_predict and training_args.local_rank in [-1, 0]:
@@ -297,8 +296,6 @@ def main():
                         writer.write(output_line)
                     else:
                         logger.warning("Maximum sequence length exceeded: No prediction for '%s'.", line.split()[0])
-
-    return results
 
 
 if __name__ == "__main__":
