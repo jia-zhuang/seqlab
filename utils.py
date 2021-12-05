@@ -38,7 +38,7 @@ class InputFeature:
 
 
 class SeqLabelDataset(Dataset):
-    def __init__(self, task, data_dir, mode, tokenizer, labels, max_seq_length, overwrite_cache=False):
+    def __init__(self, task, data_dir, mode, is_small, tokenizer, labels, max_seq_length, overwrite_cache=False):
         # Load data features from cache or dataset file
         cached_features_file = os.path.join(
             data_dir, "cached_{}_{}_{}".format(mode, tokenizer.__class__.__name__, str(max_seq_length)),
@@ -55,7 +55,8 @@ class SeqLabelDataset(Dataset):
             else:
                 logger.info(f"Creating features from dataset file at {data_dir}")
                 # read examples
-                examples = pd.read_pickle(os.path.join(data_dir, f'{mode}.pkl'))
+                data_file = f'{mode}_small.pkl' if is_small else f'{mode}.pkl'
+                examples = pd.read_pickle(os.path.join(data_dir, data_file))
                 # convert examples to features
                 TokenizedSentence.setup(tokenizer, max_seq_length)
                 label_map = {label: i for i, label in enumerate(labels)}
