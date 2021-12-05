@@ -43,6 +43,7 @@ class SeqLabelDataset(Dataset):
         cached_features_file = os.path.join(
             data_dir, "cached_{}_{}_{}".format(mode, tokenizer.__class__.__name__, str(max_seq_length)),
         )
+        if is_small: cached_features_file += '_small'
 
         lock_path = cached_features_file + '.lock'
         with FileLock(lock_path):
