@@ -26,10 +26,14 @@ python train.py \
 --output_dir $OUTPUT_DIR \
 --max_seq_length  $MAX_LENGTH \
 --num_train_epochs $NUM_EPOCHS \
+--warmup_ratio 0.1 \
 --per_device_train_batch_size $BATCH_SIZE \
 --per_device_eval_batch_size $BATCH_SIZE \
---save_steps $SAVE_STEPS \
---logging_steps $LOGGING_STEPS \
+--evaluation_strategy epoch \
+--logging_strategy epoch \
+--save_strategy epoch \
+--report_to tensorboard \
+--dataloader_num_workers 2 \
 --seed $SEED \
 --do_train \
 --do_eval
