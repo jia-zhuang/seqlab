@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 export CUDA_VISIBLE_DEVICES=""
+export TOKENIZERS_PARALLELISM="true"
 
 export NPROC=1
 
@@ -13,14 +14,14 @@ export OUTPUT_DIR=${ROOT}/assets/models/multihead_sequence_labeling/
 export DATA_DIR=${ROOT}/assets/data/multihead_sequence_labeling/
 export BATCH_SIZE=8
 export NUM_EPOCHS=3
-export SAVE_STEPS=500000
-export LOGGING_STEPS=500
 export SEED=42
+export IS_SMALL=False
 
 # python -m torch.distributed.launch --nproc_per_node=$NPROC --nnodes=1 train.py \
 python train.py \
 --task $TASK \
 --data_dir $DATA_DIR \
+--is_small $IS_SMALL \
 --labels labels.txt \
 --model_name_or_path $BERT_MODEL \
 --output_dir $OUTPUT_DIR \
