@@ -247,6 +247,8 @@ def main():
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
         trainer.save_state()
+        # save vocab
+        tokenizer.save_model(training_args.output_dir)
 
     # Evaluation
     results = {}
