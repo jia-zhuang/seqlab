@@ -45,7 +45,8 @@ class TokenizedSentence:
             self.tokens = tokend.tokens()
             self.input_ids = tokend['input_ids']
             self.attention_mask = tokend['attention_mask']
-            self.token_type_ids = tokend['token_type_ids']  # 有些模型不用token_type_ids(比如deberta, type_vocab_size=0)，则tokend['token_type_ids']全为0，无法反映上下句，而tokend.sequence_ids()始终可以
+            # self.token_type_ids = tokend['token_type_ids']  # 有些模型不用token_type_ids(比如deberta, type_vocab_size=0)，则tokend['token_type_ids']全为0，无法反映上下句，而tokend.sequence_ids()始终可以
+            self.token_type_ids = [i if i else 0 for i in tokend.sequence_ids()]  # the last [SEP] is 0, but should be 1, it's ok
             self.token2char = tokend['offset_mapping']  # List[(int, int)] 每个token对应的char span
 
             self.char2token = [None] * len(sentence)
