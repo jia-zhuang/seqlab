@@ -52,11 +52,11 @@ class DataTrainingArguments:
     data_dir: str = field(
         metadata={"help": "The input data dir. Should contain the .txt files for a CoNLL-2003-formatted task."}
     )
-    is_small: bool = field(
-        default=False, metadata={"help": "Use small dataset for debug"}
-    )
     labels: Optional[str] = field(
         metadata={"help": "Path to a file containing all labels. If not specified, CoNLL-2003 labels are used."}
+    )
+    is_small: bool = field(
+        default=False, metadata={"help": "Use small dataset for debug"}
     )
     max_seq_length: int = field(
         default=128,
